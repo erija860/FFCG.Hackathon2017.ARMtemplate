@@ -1,0 +1,290 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "environmentName": {
+            "type": "string",
+            "defaultValue": "dev",
+            "metadata": {
+                "description": "Name of the environment of the deployment, e.g. dev, prod"
+            }
+        },
+        "administratorLoginPassword": {
+            "type": "securestring",
+            "defaultValue": "Password1234",
+            "metadata": {
+                "description": "The password to use for the database server administrator."
+            }
+        },
+        "servers_ffcghackatonserver_name": {
+            "defaultValue": "ffcghackatonserver",
+            "type": "String"
+        },
+        "databases_master_name": {
+            "defaultValue": "ffcghackatonserver/master",
+            "type": "String"
+        },
+        "databases_testdb_name": {
+            "defaultValue": "ffcghackatonserver/testdb",
+            "type": "String"
+        },
+        "firewallRules_AllowAllWindowsAzureIps_name": {
+            "defaultValue": "ffcghackatonserver/AllowAllWindowsAzureIps",
+            "type": "String"
+        },
+        "sqlAdministratorLogin": {
+            "type": "string",
+            "defaultValue": "adminLogin",
+            "metadata": {
+                "description": "The admin user of the SQL Server"
+            }
+        },
+        "sqlAdministratorLoginPassword": {
+            "type": "securestring",
+            "defaultValue": "Password1234",
+            "metadata": {
+                "description": "The password of the admin user of the SQL Server"
+            }
+        }
+    },
+    "variables": {
+        "location": "[resourceGroup().location]",
+        "sqllocation": "East US",
+        "apiVersion": "2015-08-01",
+        "streamjobApiVersion": "2015-06-01",
+        "companyName": "ffcg",
+        "projectName": "hackathon2017",
+        "companyAndProjectBaseName": "[concat(variables('companyName'),'-',variables('projectName'))]",
+        "eventHubNamespaceName": "[concat(variables('companyAndProjectBaseName'),'-ns-',parameters('environmentName'))]",
+        "eventhubName": "[concat(variables('companyAndProjectBaseName'),'-eh-',parameters('environmentName'))]",
+        "eventHubconsumerGroupName": "[concat(variables('companyAndProjectBaseName'),'-cg-',parameters('environmentName'))]",
+        "eventHubDefaultSASKeyName": "RootManageSharedAccessKey",
+        "eventHubSendRule": "[concat(variables('companyAndProjectBaseName'),'-defaultSendRule-',parameters('environmentName'))]",
+        "eventHubAuthRuleResourceId": "[resourceId('Microsoft.EventHub/namespaces/authorizationRules', variables('eventHubNamespaceName'), variables('eventHubDefaultSASKeyName'))]",
+        "eventHubNamespacePath": "[concat('Microsoft.EventHub/namespaces/', variables('eventHubNamespaceName'))]",
+        "streamAnalyticsJobName": "[concat(variables('companyAndProjectBaseName'),'-asajob-',parameters('environmentName'))]",
+        "streamAnalyticsJobInputName": "[concat(variables('eventHubName'),'-input')]",
+        "streamAnalyticsJobOutputName": "[concat(variables('databaseName'),'-output')]",
+        "streamAnalyticsTransformationName": "[concat(variables('companyAndProjectBaseName'),'-transformjob-',parameters('environmentName'))]",
+        "streamAnalyticsTransformationQuery": "[concat('SELECT\r\n\t*\r\nINTO\r\n\t[',variables('streamAnalyticsJobOutputName'),']\r\nFROM\r\n\t[',variables('streamAnalyticsJobInputName'),']')]",
+        "databaseName": "[concat(variables('companyAndProjectBaseName'),'-sqldatabase-',parameters('environmentName'))]",
+        "sqlServerName": "[concat(variables('companyAndProjectBaseName'),'-sqlserver2-0-',parameters('environmentName'))]",
+        "sqlServerUserName": "[concat(variables('companyAndProjectBaseName'),'-user',parameters('environmentName'))]",
+        "settings": {
+            "sqlSettings": {
+                "sqlEdition": "DataWarehouse",
+                "sqlDatabaseName": "[variables('databaseName')]",
+                "sqlServerPassword": "pass@word1",
+                "sqlEndIpAddress": "255.255.255.255",
+                "sqlServerName": "[variables('sqlServerName')]",
+                "requestedServiceObjectiveName": "DW400",
+                "sqlMaxSizeBytes": "2147483648",
+                "sqlCollation": "SQL_Latin1_General_CP1_CI_AS",
+                "sqlLocation": "[variables('location')]",
+                "sqlStartIpAddress": "0.0.0.0",
+                "sqlServerUserName": "[variables('sqlServerUserName')]"
+            },
+            "apiVersion": {
+                "asaApiVersion": "2015-09-01",
+                "sqlApiVersion": "2014-04-01",
+                "azureMLApiVersion": "2015-09-01",
+                "storageAccountApiVersion": "2014-06-01",
+                "serviceBusApiVersion": "2014-09-01",
+                "dataFactoryApiVersion": "2015-09-01"
+            }
+        }
+        /* "streamAnalyticsTransformationQuery":"SELECT\r\n\tTripId,\r\n\tUserId,\r\n\tName,\r\n\tTripDataPoint.TripPointId as TripPointId,\r\n\tTripDataPoint.Lat as Lat,\r\n\tTripDataPoint.Lon as Lon,\r\n\tTripDataPoint.Speed as Speed,\r\n\tTripDataPoint.RecordedTimeStamp as RecordedTimeStamp,\r\n\tTripDataPoint.Sequence as Sequence,\r\n\tTripDataPoint.EngineRPM as EngineRPM,\r\n\tTripDataPoint.ShortTermFuelBank1 as ShortTermFuelBank,\r\n\tTripDataPoint.LongTermFuelBank1 as LongTermFuelBank,\r\n\tTripDataPoint.ThrottlePosition as ThrottlePosition,\r\n\tTripDataPoint.RelativeThrottlePosition as RelativeThrottlePosition,\r\n\tTripDataPoint.Runtime as Runtime,\r\n\tTripDataPoint.DistancewithMIL as DistancewithMIL,\r\n\tTripDataPoint.EngineLoad as EngineLoad,\r\n\tTripDataPoint.MAFFlowRate as MAFFlowRate,\r\n\tTripDataPoint.OutsideTemperature as OutsideTemperature,\r\n\tTripDataPoint.EngineFuelRate as EngineFuelRate,\r\n\tTripDataPoint.VIN as vin\r\nINTO\r\n\tBlobSink\r\nFROM\r\n\tCarDeviceData\r\nWHERE\r\n\tTripId is not null\r\n\tand UserId is not null\r\n\tand TripId != ''\r\n\tand UserId != ''\r\n" */
+    },
+    "resources": [
+        {
+            "apiVersion": "[variables('apiversion')]",
+            "name": "[variables('eventHubNamespaceName')]",
+            "type": "Microsoft.EventHub/namespaces",
+            "location": "[variables('location')]",
+            "properties": {
+                "provisioningState": "Succeeded",
+                "status": "Active",
+                "enabled": true
+            },
+            "sku": {
+                "name": "Standard",
+                "tier": "Standard"
+            },
+            "resources": [
+                {
+                    "apiVersion": "[variables('apiversion')]",
+                    "name": "[variables('eventhubName')]",
+                    "type": "eventhubs",
+                    "location": "[variables('location')]",
+                    "dependsOn": [
+                        "[variables('eventHubNamespacePath')]"
+                    ],
+                    "properties": {
+                        "path": "[variables('eventHubName')]",
+                        "messageRetentionInDays": 1,
+                        "status": "Active",
+                        "partitionCount": 2,
+                        "partitionIds": [
+                            0,
+                            1
+                        ]
+                    },
+                    "resources": [
+                        {
+                            "apiVersion": "[variables('apiversion')]",
+                            "name": "[variables('eventHubconsumerGroupName')]",
+                            "location": "[variables('location')]",
+                            "type": "consumergroups",
+                            "dependsOn": [
+                                "[variables('eventHubName')]"
+                            ],
+                            "properties": {}
+                        },
+                        {
+                            "apiversion": "[variables('apiversion')]",
+                            "name": "[variables('eventHubSendRule')]",
+                            "type": "authorizationRules",
+                            "properties": {
+                                "rights": [
+                                    "Send"
+                                ]
+                            },
+                            "dependsOn": [
+                                "[variables('eventHubName')]"
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        /*START OF STREAM ANALYTICS JOB */
+        {
+            "apiVersion": "[variables('streamjobApiVersion')]",
+            "type": "Microsoft.StreamAnalytics/streamingJobs",
+            "name": "[variables('streamAnalyticsJobName')]",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                /* The only supported value for ASA sku is standard https://msdn.microsoft.com/en-us/library/azure/dn834994.aspx */
+                "sku": {
+                    "name": "Standard"
+                },
+                "inputs": [
+                    {
+                        "name": "[variables('streamAnalyticsJobInputName')]",
+                        "properties": {
+                            "type": "stream",
+                            "serialization": {
+                                "type": "JSON",
+                                "properties": {
+                                    "encoding": "UTF8"
+                                }
+                            },
+                            "datasource": {
+                                "type": "Microsoft.ServiceBus/EventHub",
+                                "properties": {
+                                    "serviceBusNamespace": "[variables('eventHubNamespaceName')]",
+                                    "eventHubName": "[variables('eventHubName')]",
+                                    "sharedAccessPolicyName": "[variables('eventHubDefaultSASKeyName')]",
+                                    "sharedAccessPolicyKey": "[listkeys(variables('eventhubAuthRuleResourceId'), variables('apiVersion')).primaryKey]",
+                                    "consumerGroupName": "[variables('eventHubconsumerGroupName')]"
+                                }
+                            }
+                        }
+                    }
+                ],
+                "transformation": {
+                    "name": "[variables('streamAnalyticsTransformationName')]",
+                    "type": "transformation",
+                    "properties": {
+                        "streamingUnits": 1,
+                        "query": "[variables('streamAnalyticsTransformationQuery')]"
+                    }
+                },
+                "outputs": [
+                    {
+                        "Name": "[variables('streamAnalyticsJobInputName')]",
+                        "Properties": {
+                            "DataSource": {
+                                "Type": "Microsoft.Sql/Server/Database",
+                                "Properties": {
+                                    "Table": "bogo",
+                                    "Password": "[parameters('sqlAdministratorLoginPassword')]",
+                                    "User": "[parameters('sqlAdministratorLogin')]",
+                                    "Server": "[variables('sqlserverName')]",
+                                    "Database": "[variables('databaseName')]"
+                                }
+                            }
+                        }
+                    }
+                ]
+            },
+            "dependsOn": [
+                "[variables('eventHubName')]",
+                "[variables('databaseName')]"
+            ]
+        }
+        /*END OF STREAM ANALYTICS JOB */
+        ,
+        {
+            "name": "[variables('sqlserverName')]",
+            "type": "Microsoft.Sql/servers",
+            "location": "[variables('sqllocation')]",
+            "tags": {
+                "displayName": "SqlServer"
+            },
+            "apiVersion": "2014-04-01-preview",
+            "properties": {
+                "administratorLogin": "[parameters('sqlAdministratorLogin')]",
+                "administratorLoginPassword": "[parameters('sqlAdministratorLoginPassword')]",
+                "version": "12.0"
+            },
+            "resources": [
+                {
+                    "name": "[variables('databaseName')]",
+                    "type": "databases",
+                    "location": "[variables('sqllocation')]",
+                    "tags": {
+                        "displayName": "Database"
+                    },
+                    "apiVersion": "2014-04-01-preview",
+                    "dependsOn": [
+                        "[variables('sqlserverName')]"
+                    ],
+                    "properties": {
+                        "edition": "Standard",
+                        "collation": "SQL_Latin1_General_CP1_CI_AS",
+                        "maxSizeBytes": "1073741824",
+                        "requestedServiceObjectiveName": "S1"
+                    }
+                },
+                {
+                    "type": "firewallrules",
+                    "apiVersion": "2014-04-01-preview",
+                    "dependsOn": [
+                        "[variables('sqlserverName')]"
+                    ],
+                    "location": "[variables('sqllocation')]",
+                    "name": "AllowAllWindowsAzureIps",
+                    "properties": {
+                        "endIpAddress": "0.0.0.0",
+                        "startIpAddress": "0.0.0.0"
+                    }
+                }
+            ]
+        }
+    ],
+    "outputs": {
+        "EHNS-ConStr": {
+            "type": "string",
+            "value": "[listkeys(variables('eventhubAuthRuleResourceId'), variables('apiVersion')).primaryConnectionString]"
+        },
+        "EHNS-PrimaryKey": {
+            "type": "string",
+            "value": "[listkeys(variables('eventhubAuthRuleResourceId'), variables('apiVersion')).primaryKey]"
+        },
+        "EH-SendPolicy": {
+            "type": "string",
+            "value": "[listkeys(variables('eventHubSendRule'), variables('apiVersion')).primaryConnectionString]"
+        }
+    }
+}

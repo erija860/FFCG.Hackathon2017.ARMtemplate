@@ -1,0 +1,76 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "sqlAdministratorLogin": {
+            "type": "string",
+            "defaultValue": "adminLogin",
+            "metadata": {
+                "description": "The admin user of the SQL Server"
+            }
+        },
+        "sqlAdministratorLoginPassword": {
+            "type": "securestring",
+            "defaultValue": "Password1234",
+            "metadata": {
+                "description": "The password of the admin user of the SQL Server"
+            }
+        }
+    },
+    "variables": {
+        "sqlserverName": "[concat('sqlservertest', uniqueString(resourceGroup().id))]",
+        "databaseName": "sampledb",
+        "location":"East US"
+    },
+    "resources": [
+        {
+            "name": "[variables('sqlserverName')]",
+            "type": "Microsoft.Sql/servers",
+            "location": "[variables('location')]",
+            "tags": {
+                "displayName": "SqlServer"
+            },
+            "apiVersion": "2014-04-01-preview",
+            "properties": {
+                "administratorLogin": "[parameters('sqlAdministratorLogin')]",
+                "administratorLoginPassword": "[parameters('sqlAdministratorLoginPassword')]",
+                "version": "2.0"
+            },
+            "resources": [
+                {
+                    "name": "[variables('databaseName')]",
+                    "type": "databases",
+                    "location": "[variables('location')]",
+                    "tags": {
+                        "displayName": "Database"
+                    },
+                    "apiVersion": "2015-01-01",
+                    "dependsOn": [
+                        "[variables('sqlserverName')]"
+                    ],
+                    "properties": {
+                        "edition": "Standard",
+                        "collation": "SQL_Latin1_General_CP1_CI_AS",
+                        "maxSizeBytes": "1073741824",
+                        "requestedServiceObjectiveName": "S1"
+                    }
+                },
+                {
+                    "type": "firewallrules",
+                    "apiVersion": "2014-04-01",
+                    "dependsOn": [
+                        "[variables('sqlserverName')]"
+                    ],
+                    "location": "[variables('location')]",
+                    "name": "AllowAllWindowsAzureIps",
+                    "properties": {
+                        "endIpAddress": "0.0.0.0",
+                        "startIpAddress": "0.0.0.0"
+                    }
+                }
+            ]
+        }
+    ],
+    "outputs": {
+    }
+}
